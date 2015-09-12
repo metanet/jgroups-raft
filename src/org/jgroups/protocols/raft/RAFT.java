@@ -101,7 +101,7 @@ public class RAFT extends Protocol implements Runnable, Settable, DynamicMembers
 
     /** The current role (follower, candidate or leader). Every node starts out as a follower */
     @GuardedBy("impl_lock")
-    protected volatile RaftImpl       impl=new Follower(this);
+    protected volatile RaftImpl       impl=new Follower(this); // TODO [basri]
     protected volatile View           view;
     protected Address                 local_addr;
     protected TimeScheduler           timer;
@@ -564,8 +564,6 @@ public class RAFT extends Protocol implements Runnable, Settable, DynamicMembers
 
         log_impl.append(curr_index, true, new LogEntry(curr_term, buf, offset, length, cmd != null));
 
-        if(cmd != null)
-            executeInternalCommand(cmd, null, 0, 0);
 
         // 2. Add the request to the client table, so we can return results to clients when done
         reqtab.create(curr_index, raft_id, retval);
@@ -821,8 +819,11 @@ public class RAFT extends Protocol implements Runnable, Settable, DynamicMembers
             try {
                 cmd=(InternalCommand)Util.streamableFromByteBuffer(InternalCommand.class, log_entry.command,
                                                                    log_entry.offset, log_entry.length);
-                if(cmd.type() == InternalCommand.Type.addServer || cmd.type() == InternalCommand.Type.removeServer)
+                if(cmd.type() == InternalCommand.Type.addServer || cmd.type() == InternalCommand.Type.removeServer) {
+                    executeInternalCommand(cmd, null, 0, 0);
                     members_being_changed.set(false); // new addServer()/removeServer() operations can now be started
+                }
+
             }
             catch(Throwable t) {
                 log.error("%s: failed unmarshalling internal command: %s", local_addr, t);

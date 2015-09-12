@@ -63,8 +63,7 @@ public abstract class RaftImpl {
                 raft.deleteAllLogEntriesStartingFrom(curr_index);
             }
             raft.append(entry_term, curr_index, data, offset, length, internal).commitLogTo(leader_commit);
-            if(internal)
-                raft.executeInternalCommand(null, data, offset, length);
+
             return new AppendResult(true, curr_index).commitIndex(raft.commitIndex());
         }
         return new AppendResult(false, getFirstIndexOfConflictingTerm(prev_log_index, prev.term), prev.term);

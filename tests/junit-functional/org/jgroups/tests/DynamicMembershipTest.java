@@ -139,6 +139,35 @@ public class DynamicMembershipTest {
         assert success.get();
     }
 
+    public void testAddServerFailsWithoutCommittingToMajority() throws Exception {
+        init("A", "B");
+        Util.waitUntilAllChannelsHaveSameSize(10000, 500, channels);
+        leader=leader(10000, 500, channels);
+        final JChannel leaderChannel = channel(leader);
+        System.out.println("leader = " + leader);
+        assert leader != null;
+
+        final RAFT leaderRAFT = raft(leader);
+        RAFT followerRAFT = null;
+        for (JChannel channel : channels) {
+            if (!channel.getAddress().equals(leader)) {
+                followerRAFT = raft(channel);
+
+            }
+        }
+
+        String memberToAdd = "Z";
+
+        assert followerRAFT != null;
+
+        leaderRAFT.addServer(memberToAdd);
+
+        close(true, true, leaderChannel);
+
+        final List<String> members = followerRAFT.members();
+        assert !members.contains(memberToAdd) : members;
+    }
+
     /**
      * {A,B} -> -B -> {A} (A is the leader). Then addServer(D) on A. Then another addServer(E) on A. The second addServer()
      * should fail as A hasn't yet committed the first.
@@ -159,7 +188,7 @@ public class DynamicMembershipTest {
         // try to add D. The leader will actually add this to the log, but won't be able to commit it, so the second
         // addServer() below will fail
         raft.addServer("D");
-        assertMembers(5000, 500, mbrs2, 3, channels);
+        assertMembers(5000, 500, mbrs, 2, channels);
 
         // This will fail as the first addServer(D) has not yet been committed
         try {
